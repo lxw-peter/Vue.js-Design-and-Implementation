@@ -107,7 +107,4 @@ function tokenize(str) {
   }
   return tokens;
 }
-
-const tokens = tokenize(`<p>Vue</p>`);
-
-console.log(JSON.stringify(tokens, null, 2));
+module.exports = tokenize;
