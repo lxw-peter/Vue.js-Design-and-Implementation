@@ -39,6 +39,9 @@
       createText(text) {
         return document.createTextNode(text)
       },
+      setText(el, text) {
+        el.nodeValue = text;
+      },
       createComment(comment) {
         return document.createComment(comment)
       },

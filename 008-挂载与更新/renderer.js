@@ -1,5 +1,6 @@
 function createRenderer(options) {
-  const { insert, createElement, setElementText, patchProps, createText, createComment } = options;
+  const { insert, createElement, setElementText, patchProps, createText, setText, createComment } =
+    options;
   function mountElement(vnode, container) {
     const el = (vnode.el = createElement(vnode.type));
     // 子节点为string类型，则该节点为文本节点
@@ -30,21 +31,42 @@ function createRenderer(options) {
       n1 = null;
     }
     const { type } = n2;
-    // n1 旧节点存在，意味着需要打补丁
-    if (n1) {
-      patchElement(n1, n2);
-      return;
-    }
+
     if (typeof type === 'string') {
-      mountElement(n2, container);
+      if (n1) {
+        // n1 旧节点存在，意味着需要打补丁
+        patchElement(n1, n2);
+      } else {
+        mountElement(n2, container);
+      }
     } else if (type === Text) {
-      const el = createText(n2.children);
-      insert(el, container);
+      if (n1) {
+        const el = (n2.el = n1.el);
+        if (n2.children !== n1.children) {
+          // 更新文本、注释节点
+          setText(el, n2.children);
+        }
+      } else {
+        const el = createText(n2.children);
+        insert(el, container);
+      }
     } else if (type === Comment) {
-      const el = createComment(n2.children);
-      insert(el, container);
+      if (n1) {
+        const el = (n2.el = n1.el);
+        if (n2.children !== n1.children) {
+          // 更新文本、注释节点
+          setText(el, n2.children);
+        }
+      } else {
+        const el = createComment(n2.children);
+        insert(el, container);
+      }
     } else if (type === Fragment) {
-      n2.children.forEach((c) => patch(null, c, container));
+      if (n1) {
+        patchChildren(n1, n2, container);
+      } else {
+        n2.children.forEach((c) => patch(null, c, container));
+      }
     }
   }
   function patchElement(n1, n2) {
@@ -79,7 +101,7 @@ function createRenderer(options) {
     } else if (Array.isArray(n2.children)) {
       if (Array.isArray(n1.children)) {
         // 新旧子节点 diff，这里先暴力卸载，再逐个加载新节点
-        n2.children.forEach((c) => unmount(c));
+        n1.children.forEach((c) => unmount(c));
         n2.children.forEach((c) => patch(null, c, container));
       } else {
         // 无论旧节点是字符类型还是null，都需要先清空容器，然后将新的一组节点逐个挂载
@@ -146,6 +168,11 @@ function getType(params) {
 }
 
 function unmount(vnode) {
+  // 如果卸载的节点类型是 fragment，则需要卸载其children
+  if (vnode.type === Fragment) {
+    vnode.children.forEach((c) => unmount(c));
+    return;
+  }
   // 获取 el 的父元素
   const parent = vnode.el.parentNode;
   if (parent) {
