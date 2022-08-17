@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    div {
+      background-color: red;
+      padding: 3px;
+    }
+
+    p {
+      background-color: #fff;
+    }
+  </style>
+</head>
+<div id="app"></div>
+
+<body>
+  <script src="./vnodes.js"></script>
+  <script src="./renderer.js"></script>
+  <script>
+    const options = {
+      createElement(tag) {
+        console.log(`创建元素 ${tag}`)
+        return document.createElement(tag)
+      },
+      setElementText(el, text) {
+        console.log(`设置 ${el.tagName.toLowerCase()} 的文本内容：${text}`);
+        el.textContent = text;
+      },
+      insert(el, parent, anchor = null) {
+        console.log(`将 ${el.tagName.toLowerCase()} ${anchor ? '移动' : '添加'}到${parent.tagName.toLowerCase()}下`);
+        parent.insertBefore(el, anchor)
+      },
+      createText(text) {
+        return document.createTextNode(text)
+      },
+      createComment(comment) {
+        return document.createComment(comment)
+      },
+      setText(el, text) {
+        el.nodeValue = text;
+      },
+      patchProps(preValue, nextValue, key, el) {
+        // 解析class
+        if (key === 'class') {
+          el.className = normalizeProp(nextValue) || '';
+          return;
+        }
+        // 解析事件
+        if (/^[on]/.test(key)) {
+          const name = key.slice(2).toLowerCase()
+          // 设置伪事件， vei 代表 vnode event invoker;
+          let invokers = el._vei || (el._vei = {});
+          let invoker = invokers[key]
+          if (nextValue) {
+            // 不存在伪事件
+            if (!invoker) {
+              invoker = el._vei[key] = (e) => {
+                // 如果事件发生的时间早于事件处理函数绑定的时间，则不执行事件处理函数
+                if (e.timeStamp < invoker.attached) return;
+                if (Array.isArray(invoker.value)) {
+                  invoker.value.forEach(fn => fn(e))
+                } else {
+                  invoker.value(e)
+                }
+              }
+              // 将真正的事件赋值给invoker.value，并绑定事件
+              invoker.value = nextValue
+              // 添加 invoker.attached 属性，存储事件处理函数被绑定的时间
+              invoker.attached = performance.now();
+              el.addEventListener(name, invoker)
+            } else {
+              // 存在伪事件则只需要重新给 invoker.value 赋值
+              invoker.value = nextValue
+            }
+          } else if (invoker) {
+            // 新的绑定函数不存在，旧的存在，则需要卸载旧的绑定函数
+            el.removeListener(name, invoker)
+          }
+          return;
+        }
+
+        // 解析其他属性
+        // 优先设置DOM属性
+        if (shouldSetAsProps(el, key)) {
+          const type = typeof el[key];
+          // 如果是 dom 属性值为 bool 类型并且值为空则设值为true, eg: disabled: ''
+          if (type === 'boolean' && nextValue === '') {
+            el[key] = true;
+          } else {
+            if (key === 'style') {
+              el.style.cssText = normalizeProp(nextValue, key);
+            } else {
+              el[key] = nextValue;
+            }
+          }
+        } else {
+          el.setAttribute(key, nextValue);
+        }
+      },
+
+    }
+    const renderer = createRenderer(options)
+    const root = document.querySelector('#app')
+    /* 数组形式子节点 */
+    // renderer.render(vnode1, root)
+    /* 普通属性 */
+    // renderer.render(vnode2, root)
+    /* disabled 属性 */
+    // renderer.render(vnode3, root)
+    /* form 属性 */
+    // renderer.render(vnode31, root)
+    /* 解析字符串 class*/
+    // renderer.render(vnode4, root)
+    /* 对象形式的 class */
+    // renderer.render(vnode5, root)
+    /*  数组形式的 class */
+    // renderer.render(vnode6, root)
+    /* 文本节点 */
+    // renderer.render(vnode7, root)
+    /* 注释节点 */
+    // renderer.render(vnode8, root)
+    /* Fragment 节点 */
+    // renderer.render(vnode9, root)
+    /* 一种事件 */
+    // renderer.render(vnode10, root)
+    /* 多种事件 */
+    // renderer.render(vnode11, root)
+    /* 多次事件 */
+    // renderer.render(vnode12, root)
+    // 重载
+    // setTimeout(() => {
+    //   renderer.render(vnode11, root)
+    // }, 2000);
+
+    /* diff */
+    renderer.render(vnode13, root)
+    setTimeout(() => {
+      renderer.render(vnode14, root)
+    }, 3000);
+
+  </script>
+</body>
+
+</html>
