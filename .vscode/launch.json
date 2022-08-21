@@ -9,7 +9,7 @@
       "version": "stable",
       "request": "launch",
       "name": "针对 localhost 启动 Edge",
-      "url": "http://127.0.0.1:5700/",
+      "url": "http://127.0.0.1:5500/",
       "webRoot": "${workspaceFolder}"
     }
   ]
