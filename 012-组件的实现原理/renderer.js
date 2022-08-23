@@ -226,6 +226,8 @@ function createRenderer(options) {
           // 初次挂载，调用 patch 函数，第一个参数传 null
           patch(null, subTree, container, anchor);
           instance.isMounted = true;
+          // 将el挂载至vnode中的操作，el用于之后的unmount和diff
+          vnode.el = subTree.el;
           // 选项式 api 内定义的
           mounted && mounted.call(renderContext);
           // 组合式api内定义的 onMounted，遍历 instance.mounted 数组并逐个执行即可
