@@ -38,7 +38,7 @@ function createRenderer(options) {
           setText(el, n2.children);
         }
       } else {
-        const el = createText(n2.children);
+        const el = (n2.el = createText(n2.children));
         insert(el, container);
       }
     } else if (type === Comment) {

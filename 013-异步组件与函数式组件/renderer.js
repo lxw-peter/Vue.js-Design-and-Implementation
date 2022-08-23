@@ -1,3 +1,19 @@
+// 存储当前正在被初始化的组件实例
+let currentInstance = null;
+function setCurrentInstance(instance) {
+  const prev = currentInstance;
+  currentInstance = instance;
+  return prev;
+}
+// 同样的，这里可以注册其它生命周期函数
+function onMounted(fn) {
+  if (currentInstance) {
+    currentInstance.mounted.push(fn);
+  } else {
+    console.error('onMounted 函数只能在 setup 中调用');
+  }
+}
+
 function createRenderer(options) {
   const { insert, createElement, setElementText, patchProps, createText, setText, createComment } =
     options;
@@ -58,6 +74,13 @@ function createRenderer(options) {
       } else {
         n2.children.forEach((c) => patch(null, c, container));
       }
+    } else if (typeof type === 'object' || typeof type === 'function') {
+      // vnode.type 的值是选项对象或函数，作为组件来处理
+      if (!n1) {
+        mountComponent(n2, container, anchor);
+      } else {
+        patchComponent(n1, n2, anchor);
+      }
     }
   }
   function mountElement(vnode, container, anchor) {
@@ -82,7 +105,172 @@ function createRenderer(options) {
     }
     insert(el, container, anchor);
   }
+  function mountComponent(vnode, container, anchor) {
+    // 判断是否为函数组件
+    const isFunctional = typeof vnode.type === 'function';
 
+    let componentOptions = vnode.type;
+    // 对函数式组件特殊处理
+    if (isFunctional) {
+      // 将 vnode.type 作为渲染函数，将 vnode.type.props 作为 props 选项定义
+      componentOptions = {
+        render: vnode.type,
+        props: vnode.type.props,
+      };
+    }
+    // 注意，这里用let，后面存在修改
+    let {
+      render,
+      data,
+      props: propsOptions,
+      setup,
+      beforeCreate,
+      created,
+      beforeMount,
+      mounted,
+      beforeUpdate,
+      updated,
+    } = componentOptions;
+    // 创建前
+    beforeCreate && beforeCreate();
+    // 调用 data 函数得到原始数据，并调用 reactive 函数将其包装为响应式数据
+    const state = data ? reactive(data()) : null;
+    const [props, attrs] = resolveProps(propsOptions, vnode.props);
+    const slots = vnode.children || {};
+    // 组件实例
+    const instance = {
+      // 组件自身的状态数据
+      state,
+      props: shallowReactive(props),
+      // 表示组件是否加载
+      isMounted: false,
+      // 组件渲染的内容，即子树
+      subTree: null,
+      // 将插槽添加到组件实例上
+      slots,
+      // 用来存储通过 onMounted 函数注册的生命周期钩子函数
+      mounted: [],
+    };
+
+    /**
+     *
+     * @param {String} event 事件命
+     * @param  {...any} payload 传递给事件处理函数的参数
+     */
+    function emit(event, ...payload) {
+      const eventName = `on${event[0].toUpperCase() + event.slice(1)}`;
+      // 根据处理后的事件名称去 props 中寻找对应的事件处理函数
+      const handler = instance.props[eventName];
+      if (handler) {
+        //  TODO 这里直接调用了，并非是手动触发事件
+        // 调用事件处理函数并传参
+        handler(...payload);
+      } else {
+        console.error('事件不存在');
+      }
+    }
+
+    const setupContext = { attrs, emit, slots };
+    // setup 返回的数据
+    let setupState = null;
+    if (setup) {
+      // 在setup函数之前设置当前组件实例
+      const prevInstance = setCurrentInstance(instance);
+      // 调用setup 函数，将只读版本的props作为第一个参数传递，避免用户意外修改 props 的值
+      const setupResult = setup(shallowReadonly(instance.props), setupContext);
+      // 在setup函数执行完毕之后，重置当前组件实例
+      setCurrentInstance(prevInstance);
+
+      if (typeof setupResult === 'function') {
+        if (render) {
+          console.error('setup 函数返回渲染函数，render选项将被忽略');
+        }
+        render = setupResult;
+      } else {
+        setupState = setupResult;
+      }
+    }
+    // 将组件实例设置到 vnode 上，用于后期更新
+    vnode.component = instance;
+    // 创建渲染上下文对象，本质上是组件示例的代理
+    const renderContext = new Proxy(instance, {
+      get(t, k, r) {
+        const { state, props, slots } = t;
+        // 当 k 为 $slots时，直接返回组件实例上的slots
+        if (k === '$slots') {
+          return slots;
+        }
+        if (state && k in state) {
+          return state[k];
+        } else if (k in props) {
+          return props[k];
+        } else if (setupState && k in setupState) {
+          // 这里需要判断是否为ref
+          return isRef(setupState[k]) ? setupState[k].value : setupState[k];
+        } else {
+          console.error('不存在');
+        }
+      },
+      set(t, k, v, r) {
+        const { state, props } = t;
+        if (state && k in state) {
+          state[k] = v;
+        } else if (k in props) {
+          props[k] = v;
+        } else if (setupState && k in setupState) {
+          setupState[k] = v;
+        } else {
+          console.error('不存在');
+        }
+      },
+    });
+    // 生命周期函数调用时需要绑定渲染上下文对象
+    created && created.call(renderContext);
+    effect(
+      () => {
+        // 执行渲染函数，并将其 this 设置为 state, 函数内部可以通过 this 访问自身状态数据
+        // 获取组件要渲染的内容，即render函数返回的虚拟DOM，
+        const subTree = render.call(renderContext, renderContext);
+        // 最后调用 patch 函数来挂载组件所描述的内容，即 subTree
+        if (!instance.isMounted) {
+          beforeMount && beforeMount.call(renderContext);
+          // 初次挂载，调用 patch 函数，第一个参数传 null
+          patch(null, subTree, container, anchor);
+          instance.isMounted = true;
+          // 将el挂载至vnode中的操作，el用于之后的unmount和diff
+          vnode.el = subTree.el;
+          // 选项式 api 内定义的
+          mounted && mounted.call(renderContext);
+          // 组合式api内定义的 onMounted，遍历 instance.mounted 数组并逐个执行即可
+          instance.mounted && instance.mounted.forEach((hook) => hook.call(renderContext));
+        } else {
+          beforeUpdate && beforeUpdate.call(renderContext);
+          // 组件已加载，使用新的子树与上一次渲染的子树打补丁操作
+          patch(instance.subTree, subTree, container, anchor);
+          updated && updated.call(renderContext);
+        }
+        instance.subTree = subTree;
+      },
+      {
+        // 指定该副作用函数的调度器为 queueJob()
+        scheduler: queueJob(),
+      }
+    );
+  }
+  function patchComponent(n1, n2, anchor) {
+    const instance = (n2.component = n1.component);
+    const { props } = instance;
+    // 检测为子组件传递的 props 是否发生变化
+    if (hasPropsChanged(n1.props, n2.props)) {
+      const [nextProps] = resolveProps(n2.type.props, n2.props);
+      for (const k in nextProps) {
+        props[k] = nextProps[k];
+      }
+      for (const k in props) {
+        if (!(k in nextProps)) delete props[k];
+      }
+    }
+  }
   function patchElement(n1, n2) {
     const el = (n2.el = n1.el);
     const oldProps = n1.props;
@@ -137,12 +325,16 @@ function createRenderer(options) {
     if (vnode.type === Fragment) {
       vnode.children.forEach((c) => unmount(c));
       return;
+    } else if (typeof vnode.type === 'object') {
+      // 对于组件的卸载，本质上是卸载组件渲染的内容，即 subTree
+      unmount(vnode.component.subTree);
+      return;
     }
     // 获取 el 的父元素
     const parent = vnode.el.parentNode;
     if (parent) {
       console.log(`从父元素${parent.tagName.toLowerCase()}
-        卸载${vnode.el.tagName.toLowerCase()}`);
+        卸载${vnode.el?.tagName?.toLowerCase()}`);
       parent.removeChild(vnode.el);
     }
   }
@@ -165,6 +357,20 @@ function createRenderer(options) {
 
     let oldVNode = oldChildren[j];
     let newVNode = newChildren[j];
+
+    /*  补充key不存在的情况 */
+    while ((oldVNode && !oldVNode.key) || (newVNode && !newVNode.key)) {
+      // 调用patch 更新
+      patch(oldVNode, newVNode, container);
+      j++;
+      oldVNode = oldChildren[j];
+      newVNode = newChildren[j];
+    }
+    if (!oldVNode || !newVNode) {
+      return;
+    }
+    /* end */
+
     // 处理前置节点，直到前置节点 key 值不等
     while (oldVNode.key === newVNode.key) {
       // 调用patch 更新
@@ -180,6 +386,7 @@ function createRenderer(options) {
 
     oldVNode = oldChildren[oldEnd];
     newVNode = newChildren[newEnd];
+
     // 直到后置节点 key 值不等
     while (oldVNode.key === newVNode.key) {
       patch(oldVNode, newVNode, container);
@@ -209,26 +416,9 @@ function createRenderer(options) {
       const count = newEnd - j + 1;
       const source = new Array(count);
       source.fill(-1);
-
       // oldStart 和 newStart 分别为起始索引，即 j
       const oldStart = j;
       const newStart = j;
-
-      // 遍历旧的一组子节点，双重循环复杂度 O(n)
-      /* for (let i = oldStart; i <= oldEnd; i++) {
-        const oldVNode = oldChildren[i];
-        // 遍历新的一组子节点
-        for (let k = newStart; k <= newEnd; k++) {
-          const newVNode = newChildren[k];
-          //  找到相同 key 值的可复用节点
-          if (oldVNode.key === newVNode.key) {
-            //  更新节点
-            patch(oldVNode, newVNode, container);
-            // 填充 source 数组
-            source[k - newStart] = i;
-          }
-        }
-      } */
       // 构建索引表
       const keyIndex = {};
       // 是否需要移动
@@ -302,37 +492,4 @@ function createRenderer(options) {
     }
   }
   return { render };
-}
-
-function shouldSetAsProps(el, key) {
-  // 特殊处理， input 元素的 form 属性是只读的，只能用setAttribute
-  if (key === 'form' && el.tagName === 'INPUT') return false;
-  return key in el;
-}
-
-// class ,style 也可以用该方法序列化
-function normalizeProp(params, type = 'class') {
-  let delimiter = type === 'style' ? ';' : ' ';
-  if (typeof params === 'string') {
-    return params;
-  } else if (Array.isArray(params)) {
-    return params.reduce((last, cur) => {
-      return last ? last + delimiter + normalizeProp(cur) : normalizeProp(cur);
-    }, '');
-  } else if (getType(params) === 'Object') {
-    let result = '';
-    for (const key in params) {
-      if (!Object.hasOwnProperty.call(params, key)) continue;
-      if (params[key]) {
-        result = result ? result + delimiter + key : key;
-      }
-    }
-    return result;
-  }
-  return '';
-}
-
-/** 获取数据类型 */
-function getType(params) {
-  return Object.prototype.toString.call(params).slice(8, -1);
 }

@@ -13,7 +13,13 @@ function onMounted(fn) {
     console.error('onMounted 函数只能在 setup 中调用');
   }
 }
-
+function onUnMounted(fn) {
+  if (currentInstance) {
+    currentInstance.mounted.push(fn);
+  } else {
+    console.error('onMounted 函数只能在 setup 中调用');
+  }
+}
 function createRenderer(options) {
   const { insert, createElement, setElementText, patchProps, createText, setText, createComment } =
     options;
@@ -54,7 +60,7 @@ function createRenderer(options) {
           setText(el, n2.children);
         }
       } else {
-        const el = createText(n2.children);
+        const el = (n2.el = createText(n2.children));
         insert(el, container);
       }
     } else if (type === Comment) {
@@ -313,6 +319,10 @@ function createRenderer(options) {
     // 如果卸载的节点类型是 fragment，则需要卸载其children
     if (vnode.type === Fragment) {
       vnode.children.forEach((c) => unmount(c));
+      return;
+    } else if (typeof vnode.type === 'object') {
+      // 对于组件的卸载，本质上是卸载组件渲染的内容，即 subTree
+      unmount(vnode.component.subTree);
       return;
     }
     // 获取 el 的父元素
