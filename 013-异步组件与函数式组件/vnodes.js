@@ -331,26 +331,66 @@ const slotsVNode2 = {
     },
   },
 };
+/* 异步组件 */
+let counter = 0;
+const AsyncComponent = {
+  name: 'AsyncComponent',
+  props: {
+    title: String,
+  },
+  setup(props, { emit, slots }) {
+    return () => {
+      return {
+        type: 'div',
+        children: [
+          {
+            type: defineAsyncComponent({
+              loader: () =>
+                new Promise((r, j) => {
+                  setTimeout(() => {
+                    counter > 2 ? r(InnerComp) : j('error...');
+                  }, 1000);
+                }),
+              timeout: 0,
+              errorComponent: {
+                setup() {
+                  return () => {
+                    return { type: 'h2', children: 'Error - timeout' };
+                  };
+                },
+              },
+              delay: 500,
+              loadingComponent: {
+                setup() {
+                  return () => {
+                    return { type: 'h2', children: 'Loading...' };
+                  };
+                },
+              },
+              onError(retry, reject, retires) {
+                counter = retires;
+                retry();
+              },
+            }),
+          },
+        ],
+      };
+    };
+  },
+};
 
-const AsyncComponent = defineAsyncComponent({
-  loader: () => new Promise((resolve) => resolve(vnode7)),
-  timeout: 2000,
-});
-
+const InnerComp = {
+  name: 'InnerComp',
+  setup() {
+    return () => ({
+      type: 'div',
+      children: '异步组件内容',
+    });
+  },
+};
 const asyncVNode = {
   type: AsyncComponent,
-  // props: {
-  //   foo: '传递给子组件的props已修改',
-  // },
-  // children: {
-  //   header() {
-  //     return { type: 'h1', children: '我是标题' };
-  //   },
-  //   main() {
-  //     return { type: 'section', children: '我是内容' };
-  //   },
-  //   footer() {
-  //     return { type: 'p', children: '我是注脚' };
-  //   },
-  // },
+  props: {
+    title: '传递给子组件的props已修改',
+  },
 };
