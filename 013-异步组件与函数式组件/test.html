@@ -117,6 +117,9 @@
     // renderer.render(slotsVNode2, document.querySelector('#app'))
     /* 异步组件 存在 bug*/
     renderer.render(asyncVNode, document.querySelector('#app'))
+    setTimeout(() => {
+      renderer.render(null, document.querySelector('#app'))
+    }, 5000);
     // renderer.render(vnode7, document.querySelector('#app'))
     // setTimeout(() => {
 

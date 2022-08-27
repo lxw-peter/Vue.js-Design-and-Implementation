@@ -26,6 +26,7 @@
   <script src="./utils.js"></script>
   <script src="./asyncComponent.js"></script>
   <script src="./keepAlive.js"></script>
+  <script src="./teleport.js"></script>
   <script src="./vnodes.js"></script>
   <script src="./renderer.js"></script>
   <script>
@@ -36,11 +37,11 @@
         return document.createElement(tag)
       },
       setElementText(el, text) {
-        console.log(`设置 ${el.tagName.toLowerCase()} 的文本内容：${text}`);
+        console.log(`设置 ${el.tagName?.toLowerCase()} 的文本内容：${text}`);
         el.textContent = text;
       },
       insert(el, parent, anchor = null) {
-        console.log(`将 ${el.tagName?.toLowerCase()} ${anchor ? '移动' : '添加'}到${parent.tagName.toLowerCase()}下`);
+        console.log(`将 ${el.tagName?.toLowerCase()} ${anchor ? '移动' : '添加'}到${parent.tagName?.toLowerCase()}下`);
         parent.insertBefore(el, anchor)
       },
       createText(text) {
@@ -115,17 +116,26 @@
     const renderer = createRenderer(options)
     const root = document.querySelector('#app')
     /* keepalive 组件测试 */
-    renderer.render(KeepAliveCompVNode, document.querySelector('#app'))
+    // renderer.render(KeepAliveCompVNode, document.querySelector('#app'))
 
 
+    // setTimeout(() => {
+    //   renderer.render(null, document.querySelector('#app'))
+    // }, 3000);
+
+    // setTimeout(() => {
+    //   renderer.render(KeepAliveCompVNode, document.querySelector('#app'))
+    // }, 5000);
+
+    /* teleport 组件测试 */
+
+    renderer.render(TeleportCompVNode, document.querySelector('#app'))
     setTimeout(() => {
       renderer.render(null, document.querySelector('#app'))
-    }, 3000);
-
-    setTimeout(() => {
-      renderer.render(KeepAliveCompVNode, document.querySelector('#app'))
-    }, 5000);
-
+    }, 1000);
+    // setTimeout(() => {
+    //   renderer.render(TeleportCompVNode2, document.querySelector('#app'))
+    // }, 1000);
   </script>
 </body>
 

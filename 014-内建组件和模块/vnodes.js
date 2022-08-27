@@ -430,3 +430,27 @@ const KeepAliveCompVNode = {
     },
   },
 };
+
+/* Teleport 测试用例 */
+
+const TeleportCompVNode = {
+  type: Teleport,
+  props: {
+    to: 'body',
+  },
+  children: [
+    { type: 'h1', children: 'Title' },
+    { type: 'p', children: 'content' },
+  ],
+};
+
+const TeleportCompVNode2 = {
+  type: Teleport,
+  props: {
+    to: 'body',
+  },
+  children: [
+    { type: 'h1', children: 'A big Title' },
+    { type: 'p', children: 'a small content' },
+  ],
+};

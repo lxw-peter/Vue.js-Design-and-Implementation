@@ -74,6 +74,16 @@ function createRenderer(options) {
       } else {
         n2.children.forEach((c) => patch(null, c, container));
       }
+    } else if (typeof type === 'object' && type.__isTeleport) {
+      // 将控制权交接给 Teleport组件的 process, 第五个参数是传递渲染器的一些内部方法
+      type.process(n1, n2, container, anchor, {
+        patch,
+        patchChildren,
+        unmount,
+        move(vnode, container, anchor) {
+          insert(vnode.component ? vnode.component.subTree.el : vnode.el, container, anchor);
+        },
+      });
     } else if (typeof type === 'object' || typeof type === 'function') {
       // vnode.type 的值是选项对象或函数，作为组件来处理
       if (!n1) {
@@ -338,8 +348,8 @@ function createRenderer(options) {
     }
   }
   function unmount(vnode) {
-    // 如果卸载的节点类型是 fragment，则需要卸载其children
-    if (vnode.type === Fragment) {
+    // 如果卸载的节点类型是 fragment，teleport 组件, 则需要卸载其children
+    if (vnode.type === Fragment || vnode.type.__isTeleport) {
       vnode.children.forEach((c) => unmount(c));
       return;
     } else if (typeof vnode.type === 'object') {
