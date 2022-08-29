@@ -454,3 +454,28 @@ const TeleportCompVNode2 = {
     { type: 'p', children: 'a small content' },
   ],
 };
+
+// 动画组件
+const TransitionCom = {
+  name: 'TransitionCom',
+  setup() {
+    const toggle = ref(true);
+
+    setTimeout(() => {
+      // toggle.value = false;
+    }, 2000);
+
+    return () => {
+      return {
+        type: Transition,
+        children: {
+          default() {
+            return toggle.value
+              ? { type: 'div', props: { class: 'box' } }
+              : { type: Text, children: '' };
+          },
+        },
+      };
+    };
+  },
+};

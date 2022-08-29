@@ -7,13 +7,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
   <style>
-    div {
+    .box {
+      width: 100px;
+      height: 100px;
       background-color: red;
-      padding: 3px;
     }
 
-    p {
-      background-color: #fff;
+    .enter-active,
+    .leave-active {
+      transition: transform 1s ease-in-out;
+    }
+
+    .enter-from,
+    .leave-to {
+      transform: translateX(200px);
+    }
+
+    .enter-to,
+    .leave-from {
+      transform: translateX(0);
     }
   </style>
 </head>
@@ -27,6 +39,7 @@
   <script src="./asyncComponent.js"></script>
   <script src="./keepAlive.js"></script>
   <script src="./teleport.js"></script>
+  <script src="./transition.js"></script>
   <script src="./vnodes.js"></script>
   <script src="./renderer.js"></script>
   <script>
@@ -129,13 +142,15 @@
 
     /* teleport 组件测试 */
 
-    renderer.render(TeleportCompVNode, document.querySelector('#app'))
-    setTimeout(() => {
-      renderer.render(null, document.querySelector('#app'))
-    }, 1000);
+    // renderer.render(TeleportCompVNode, document.querySelector('#app'))
+    // setTimeout(() => {
+    //   renderer.render(null, document.querySelector('#app'))
+    // }, 1000);
     // setTimeout(() => {
     //   renderer.render(TeleportCompVNode2, document.querySelector('#app'))
     // }, 1000);
+
+    renderer.render({ type: TransitionCom }, document.querySelector('#app'));
   </script>
 </body>
 

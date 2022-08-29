@@ -118,7 +118,18 @@ function createRenderer(options) {
         patchProps(null, vnode.props[key], key, el);
       }
     }
+    // 判断一个 VNode 是否需要过度
+    const needTransition = vnode.transition;
+    if (needTransition) {
+      // 进入前
+      vnode.transition.beforeEnter(el);
+    }
+    // 插入元素
     insert(el, container, anchor);
+    if (needTransition) {
+      // 进入后
+      vnode.transition.enter(el);
+    }
   }
   function mountComponent(vnode, container, anchor) {
     // 判断是否为函数组件
@@ -253,7 +264,7 @@ function createRenderer(options) {
     });
     // 生命周期函数调用时需要绑定渲染上下文对象
     created && created.call(renderContext);
-    effect(
+    instance.update = effect(
       () => {
         // 执行渲染函数，并将其 this 设置为 state, 函数内部可以通过 this 访问自身状态数据
         // 获取组件要渲染的内容，即render函数返回的虚拟DOM，
@@ -296,6 +307,7 @@ function createRenderer(options) {
       for (const k in props) {
         if (!(k in nextProps)) delete props[k];
       }
+      instance.update();
     }
   }
   function patchElement(n1, n2) {
@@ -348,6 +360,8 @@ function createRenderer(options) {
     }
   }
   function unmount(vnode) {
+    // 判断 VNode 是否需要过度处理
+    const needTransition = vnode.transition;
     // 如果卸载的节点类型是 fragment，teleport 组件, 则需要卸载其children
     if (vnode.type === Fragment || vnode.type.__isTeleport) {
       vnode.children.forEach((c) => unmount(c));
@@ -367,7 +381,15 @@ function createRenderer(options) {
     if (parent) {
       console.log(`从父元素${parent.tagName.toLowerCase()}
         卸载${vnode.el?.tagName?.toLowerCase()}`);
-      parent.removeChild(vnode.el);
+      const performRemove = () => parent.removeChild(vnode.el);
+      if (needTransition) {
+        // 如果需要过度，则调佣 transition.leave 钩子，
+        // 同时将 DOM 元素和 performRemove 函数作为参数传递
+        vnode.transition.leave(vnode.el, performRemove);
+      } else {
+        // 不需要过度直接调用 performRemove
+        performRemove();
+      }
     }
   }
   function diffArrayChildren(n1, n2, container) {

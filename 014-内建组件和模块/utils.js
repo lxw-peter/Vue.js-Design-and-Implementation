@@ -144,3 +144,13 @@ function hasPropsChanged(prevProps, nextProps) {
   }
   return false;
 }
+
+/**
+ * 下一帧
+ * @param {Function} cb
+ */
+function nextFrame(cb) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(cb);
+  });
+}
