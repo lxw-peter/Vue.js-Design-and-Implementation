@@ -462,7 +462,7 @@ const TransitionCom = {
     const toggle = ref(true);
 
     setTimeout(() => {
-      // toggle.value = false;
+      toggle.value = false;
     }, 2000);
 
     return () => {
