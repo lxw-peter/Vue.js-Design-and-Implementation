@@ -82,6 +82,7 @@ function transform(ast) {
 }
 
 function transformElement(node, context) {
+  // 自定义内容
   if (node.type === 'Element' && node.tag == 'p') {
     node.tag = 'h1';
   }
